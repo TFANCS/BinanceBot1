@@ -15,60 +15,71 @@ import make_dataset
 
 
 def sell(base_balance, quote_balance, quantity, price):
-    base_balance -= quantity
-    quote_balance += quantity*price
+    if base_balance >= quantity:
+        base_balance -= quantity
+        quote_balance += quantity*price*0.999
+    else:
+        print("Insufufficient balance")
     return base_balance, quote_balance
 
 
 def buy(base_balance, quote_balance, quantity, price):
-    base_balance += quantity
-    quote_balance -= quantity*price
+    if quote_balance >= quantity*price:
+        quote_balance -= quantity*price
+        base_balance += quantity*0.999
+    else:
+        print("Insufufficient balance")
     return base_balance, quote_balance
 
 
 
 def simulation(binance,model):
 
-    df_list_test = {}
-    df_list_orig = {}
+    df_list_normalized = {}
+    df_list = {}
 
     for symbol in const.PAIR_SYMBOLS:
-        df_list_test[symbol] = pd.read_csv("..\\Data\\" + symbol + "_data_test.csv", index_col=0, parse_dates=True)
-        df_list_orig[symbol] = pd.read_csv("..\\Data\\" + symbol + "_data_test.csv", index_col=0, parse_dates=True)
-        #mpf.plot(df_list[symbol], type='candle')
-        df_list_test[symbol] = tf.keras.utils.normalize(df_list_test[symbol], axis=0, order=2)
+        df_list_normalized[symbol] = make_dataset.make_current_data(binance,symbol,10,1)
+        df_list[symbol] = make_dataset.make_current_data(binance,symbol,10,1, normalized=False)
+        mpf.plot(df_list[symbol], type='candle')
 
     symbol = "BTCUSDT"
 
     base_balance = 0.002
     quote_balance = 100
-    price = df_list_orig[symbol].iloc[0,1]
+    price = df_list[symbol].iloc[0,1]
     #price = float(binance.get_ticker("BTCUSDT")["lastPrice"])
 
-    data, _ = make_dataset.make_dataset(df_list_test[symbol])
-
+    data,_ = make_dataset.make_dataset(df_list_normalized[symbol])
+    print(df_list[symbol])
+    print(data)
 
     model.load_weights(const.CHECKPOINT_PATH)
     df = pd.DataFrame(model.predict(data))
     df = df.idxmax(axis=1)
 
+    print(df)
+
     first_balance = (base_balance*price)+quote_balance
 
-    for i in range(300):
+    for i in range(len(df)):
         print("Period:" + str(i))
-        price = df_list_orig[symbol].iloc[i,1]
+        price = df_list[symbol].iloc[i,1]
         print("Price:"+str(price))
-        print("Balance:"+str((base_balance*price)+quote_balance))
+        print("Balance:"+str((base_balance*price)+quote_balance) + " Base:" + str(base_balance) + " Quote:" + str(quote_balance))
         if df.iloc[i] == 0:
+            print("SELL")
             base_balance, quote_balance = sell(base_balance, quote_balance,0.0002,price)
         elif df.iloc[i] == 2:
+            print("BUY")
             base_balance, quote_balance = buy(base_balance, quote_balance,0.0002,price)
         print("")
 
 
 
     print("Start:" + str(first_balance) + "  Last" + str((base_balance*price)+quote_balance))
-    print("result:" + str((base_balance*price)+quote_balance-first_balance))
+    print("Result:" + str((base_balance*price)+quote_balance-first_balance))
+    print("Without Trading:" + str((0.002*price + 100)-first_balance))
 
 
 
