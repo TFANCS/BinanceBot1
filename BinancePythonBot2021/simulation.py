@@ -8,7 +8,7 @@ import tensorflow as tf
 import os
 import const
 import make_dataset
-
+import matplotlib.pyplot as plt
 
 
 
@@ -33,20 +33,26 @@ def buy(base_balance, quote_balance, quantity, price):
 
 
 
+
+
+
+
 def simulation(binance,model):
 
     df_list_normalized = {}
     df_list = {}
 
     for symbol in const.PAIR_SYMBOLS:
-        df_list_normalized[symbol] = make_dataset.make_current_data(binance,symbol,10,1)
-        df_list[symbol] = make_dataset.make_current_data(binance,symbol,10,1, normalized=False)
-        mpf.plot(df_list[symbol], type='candle')
+        df_list_normalized[symbol] = make_dataset.make_current_data(binance,symbol,10,0)
+        df_list[symbol] = make_dataset.make_current_data(binance,symbol,10,0, normalized=False)
+        #mpf.plot(df_list[symbol], type='candle')
 
     symbol = "BTCUSDT"
 
-    base_balance = 0.002
-    quote_balance = 100
+    first_base_balance = 0.002
+    first_quote_balance = 100
+    base_balance = first_base_balance
+    quote_balance = first_quote_balance
     price = df_list[symbol].iloc[0,1]
     #price = float(binance.get_ticker("BTCUSDT")["lastPrice"])
 
@@ -54,7 +60,7 @@ def simulation(binance,model):
     print(df_list[symbol])
     print(data)
 
-    model.load_weights(const.CHECKPOINT_PATH)
+    model.load_weights(const.CHECKPOINT_PATH.format(time_length=const.TIME_LENGTH))
     df = pd.DataFrame(model.predict(data))
     df = df.idxmax(axis=1)
 
@@ -79,9 +85,14 @@ def simulation(binance,model):
 
     print("Start:" + str(first_balance) + "  Last" + str((base_balance*price)+quote_balance))
     print("Result:" + str((base_balance*price)+quote_balance-first_balance))
-    print("Without Trading:" + str((0.002*price + 100)-first_balance))
+    print("Without Trading:" + str((first_base_balance*price + first_quote_balance)-first_balance))
 
-
-
+    fig = plt.figure()
+    ax1 = fig.add_subplot(2, 1, 1)
+    ax2 = fig.add_subplot(2, 1, 2)
+    x=range(len(df))
+    ax1.plot(x,df_list[symbol].iloc[:len(df),1])
+    ax2.plot(x,df)
+    plt.show()
 
 

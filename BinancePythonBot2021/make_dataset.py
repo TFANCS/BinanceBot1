@@ -22,21 +22,31 @@ def make_dataset(orig_data):
         target.append(2 if dif > 0.0005 else 0 if dif < -0.0005 else 1)
         #print(2 if dif > 0.0001 else 0 if dif < -0.0001 else 1)
 
-    down_num = 0
-    up_num = 0
-    for i in target:
-        if i == 0:
-            down_num += 1
-        elif i == 2:
-            up_num += 1
-    print(down_num/(len(orig_data)-const.TIME_LENGTH))
-    print(up_num/(len(orig_data)-const.TIME_LENGTH))
+    #down_num = 0
+    #up_num = 0
+    #for i in target:
+    #    if i == 0:
+    #        down_num += 1
+    #    elif i == 2:
+    #        up_num += 1
+    #print(down_num/(len(orig_data)-const.TIME_LENGTH))s
+    #print(up_num/(len(orig_data)-const.TIME_LENGTH))
 
     re_data = np.array(data).reshape(len(data), const.TIME_LENGTH, len(orig_data.columns))
     re_target = np.array(target).reshape(len(data), 1)
 
+    np.nan_to_num(re_data, copy=False)
+    np.nan_to_num(re_target, copy=False)
 
     return re_data, re_target
+
+
+
+
+
+
+
+
 
 
 def make_current_data(binance,symbol, day_start,day_end, normalized = True):
@@ -47,7 +57,7 @@ def make_current_data(binance,symbol, day_start,day_end, normalized = True):
 
 
     if day_start == 0 and day_end == 0:
-        klines = binance.get_klines("BTCUSDT",const.TIME_LENGTH)
+        klines = binance.get_klines("BTCUSDT",const.TIME_LENGTH*2)
         df = df.append(klines)
     else:
         for i in range(day_start,day_end,-1):
@@ -56,6 +66,7 @@ def make_current_data(binance,symbol, day_start,day_end, normalized = True):
 
 
     df = df.astype("float64")
+    #mpf.plot(df, type="candle")
     if normalized:
         df = tf.keras.utils.normalize(df, axis=0, order=2)
     df.loc[:, "MA7"] =  technical_indicators.ma(df,7)
@@ -83,7 +94,6 @@ def make_current_data(binance,symbol, day_start,day_end, normalized = True):
     #df.loc[:, "EMV"] =  technical_indicators.emv(df)
     df.loc[:, "PL"] =  technical_indicators.pl(df,12)
     #df = df.append(klines)
-    print(df)
 
     return df
 

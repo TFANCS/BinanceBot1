@@ -2,6 +2,6 @@
 PAIR_SYMBOLS = ["BTCUSDT","ETHUSDT"]
 BALANCE_SYMBOLS = ["USDT","BTC","ETH","BNB"]
 
-TIME_LENGTH = 50
-CHECKPOINT_PATH = "TrainData/checkpoint.ckpt"
+TIME_LENGTH = 100
+CHECKPOINT_PATH = "TrainData/checkpoint_TimeLength{time_length:03d}.ckpt"
 
