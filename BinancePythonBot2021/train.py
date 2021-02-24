@@ -12,10 +12,10 @@ import kerastuner as kt
 
 
 def scheduler(epoch, lr):
-    if epoch < 10:
+    if epoch < 5:
         return lr
     else:
-        return lr * tf.math.exp(-0.1)
+        return (lr/100) * tf.math.exp(-0.1)
 
 
 
@@ -56,25 +56,30 @@ def train(binance,model):
 
     for symbol in const.PAIR_SYMBOLS:
         df_list[symbol] = pd.read_csv("..\\Data\\" + symbol + "_data.csv", index_col=0, parse_dates=True)
+        #df_list[symbol] = pd.read_csv("..\\Data\\SinSample1.csv", index_col=0, parse_dates=True)
         #df_list[symbol] = tf.keras.utils.normalize(df_list[symbol], axis=0, order=2)
 
     #df_list_merged = pd.concat(df_list, axis=1)
 
-    df_test = make_dataset.make_current_data(binance,symbol,0,0)
+    df_test = make_dataset.make_current_data(binance,"XRPUSDT",0,0, normalized=True)
+    #df_test = pd.read_csv("..\\Data\\SinSample1.csv", index_col=0, parse_dates=True)
 
-    data, target = make_dataset.make_dataset(df_list["BTCUSDT"])
+    data, target = make_dataset.make_dataset(df_list["XRPUSDT"])
     data_test, target_test = make_dataset.make_dataset(df_test)
 
-    checkpoint_dir = os.path.dirname(const.CHECKPOINT_PATH.format(time_length=const.TIME_LENGTH))
+    print(target_test)
+    checkpoint_dir = os.path.dirname(const.CHECKPOINT_PATH)
     checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-        const.CHECKPOINT_PATH.format(time_length=const.TIME_LENGTH), 
+        const.CHECKPOINT_PATH, 
         verbose=1, 
         save_weights_only=True,
         save_freq=3000)
     lr_change_callback = tf.keras.callbacks.LearningRateScheduler(scheduler)
 
-    epochs = 30
-    batch_size = 5
+    early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=4)
+
+    epochs = 4
+    batch_size = 2
 
 
     #tuner = kt.Hyperband(model_builder,
@@ -86,15 +91,30 @@ def train(binance,model):
     #tuner.search(data, target, epochs=3, validation_data=(data_test, target_test))
     #tuner.results_summary()
 
+    print(target)
+
     stack = model.fit(data, target,
               batch_size=batch_size,
               epochs=epochs,
-              callbacks=[checkpoint_callback,lr_change_callback],
+              callbacks=[checkpoint_callback,lr_change_callback, early_stop],
               validation_data=(data_test, target_test)
               )
     model.summary()
 
-    x = range(epochs)
+
+    test_predictions = model.predict(data_test).flatten()
+
+    plt.scatter(target_test, test_predictions)
+    plt.xlabel('True Values [MPG]')
+    plt.ylabel('Predictions [MPG]')
+    plt.axis('equal')
+    plt.axis('square')
+    plt.xlim([0,plt.xlim()[1]])
+    plt.ylim([0,plt.ylim()[1]])
+    _ = plt.plot([-100, 100], [-100, 100])
+    plt.show()
+
+    x = range(len(stack.history["loss"]))
     plt.plot(x, stack.history["loss"])
     plt.plot(x, stack.history["val_loss"])
     plt.legend(["loss", "val_loss"], loc="upper left")

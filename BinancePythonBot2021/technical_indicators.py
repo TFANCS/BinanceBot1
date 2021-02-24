@@ -18,13 +18,13 @@ def test(binance):
     print(df)
     mpf.plot(df, type='candle')
 
-    indicator1,indicator2,_ = kdj(df)
+    indicator = sar(df)
     #a = []
     #for i in range(len(df)):
     #    a.append(df.iloc[i,1])
 
     x = range(len(df))
-    plt.plot(x, indicator1, indicator2)
+    plt.plot(x, indicator)
     plt.show()
 
 
