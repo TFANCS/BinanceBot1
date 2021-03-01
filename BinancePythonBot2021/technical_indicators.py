@@ -18,13 +18,14 @@ def test(binance):
     print(df)
     mpf.plot(df, type='candle')
 
-    indicator = sar(df)
+    indicator1, i2 = macd(df)
+
     #a = []
     #for i in range(len(df)):
     #    a.append(df.iloc[i,1])
 
     x = range(len(df))
-    plt.plot(x, indicator)
+    plt.plot(x, indicator1,i2)
     plt.show()
 
 
@@ -181,7 +182,7 @@ def macd(df):
     short_period_ema = ema(df,12)
     long_period_ema = ema(df,26)
     macd = np.array(short_period_ema) - np.array(long_period_ema)
-    macd = (macd*1000).tolist()
+    macd = (macd*10000).tolist()
     signal = ma_array(macd,9)
     return macd,signal
 
@@ -190,28 +191,18 @@ def macd(df):
 
 
 def rsi(df,length):
-    gain_sum = 0
-    loss_sum = 0
-    for i in range(length):    #first rsi value
-        dif = df.iloc[i,1]-df.iloc[i,0]
-        if dif > 0:
-            gain_sum += dif
-        else:
-            loss_sum -= dif
-    avg_gain = gain_sum / length
-    avg_loss = loss_sum / length
-    rsi = 100-(100/(1+(avg_gain/avg_loss)))
-    output = [rsi/1000] * (length-1)
-    output.append(rsi)
-    for i in range(length,len(df)):
-        dif = df.iloc[i,1]-df.iloc[i,0]
-        if dif > 0:
-            avg_gain = ((avg_gain*(length-1)) + dif)/length
-        else:
-            avg_loss = ((avg_loss*(length-1)) - dif)/length
-        rsi = 100-(100/(1+(avg_gain/avg_loss)))
-        output.append(rsi/1000)
-    return output
+    delta = df["Close"].diff()
+
+    up, down = delta.copy(), delta.copy()
+    up[up < 0] = 0
+    down[down > 0] = 0
+
+    _gain = up.ewm(com=(length - 1), min_periods=length).mean()
+    _loss = down.abs().ewm(com=(length - 1), min_periods=length).mean()
+
+    RS = _gain / _loss
+    return pd.Series((100-(100 / (1 + RS)))/10000, name="RSI")
+
 
 
 
@@ -298,7 +289,7 @@ def wr(df,length):
             lowest = df.iloc[j,3]
         if df.iloc[j,2] > highest:
             highest = df.iloc[j,2]
-        r.append((highest-df.iloc[j,1])/(highest-lowest)/10)
+        r.append(((highest-df.iloc[j,1])/(highest-lowest)/10)/10)
     return r
 
 
@@ -374,7 +365,7 @@ def pl(df,length): #psichological line
         for j in range(length):
             if df.iloc[i+j,1]-df.iloc[i+j,0]>0:
                 up_day += 1
-        output.append(up_day/length/10)
+        output.append((up_day/length/10)/10)
     return output
 
 
