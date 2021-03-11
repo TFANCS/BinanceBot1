@@ -38,7 +38,7 @@ import random
 
 tf.compat.v1.enable_v2_behavior()
 
-num_iterations = 100000 # @param {type:"integer"}
+num_iterations = 50000 # @param {type:"integer"}
 
 initial_collect_steps = 1000  # @param {type:"integer"} 
 collect_steps_per_iteration = 1  # @param {type:"integer"}
@@ -71,19 +71,19 @@ class TradingEnv(py_environment.PyEnvironment):
         self._action_spec = array_spec.BoundedArraySpec(
             shape=(), dtype=np.int32, minimum=0, maximum=2, name="action")
         self._observation_spec = array_spec.BoundedArraySpec(
-            shape=(12,), dtype=np.float32, minimum=0.0, name="observation")  
+            shape=(19,), dtype=np.float32, minimum=0.0, name="observation")  
         self._episode_ended = False
         self.unit = 0.001
         self.time = 0
         self.whole_price_data = price_data
         self.price_data = self.whole_price_data.iloc[:time_length,:]
-        self.current_price = self.price_data.iloc[self.time,0]
+        self.current_price = self.price_data.iloc[self.time,-1]
         self.last_balance = 0.0
         self.base_balance = 0.0
         self.quote_balance = 0.0
         self.init_quote_balance = 0.0
         self.stoploss_balance = 0.0
-        self.current_observation = self.price_data.iloc[self.time,1:]
+        self.current_observation = self.price_data.iloc[self.time,:-1]
         self.current_observation["BaseBalance"] = self.base_balance
         self.current_observation["QuoteBalance"] = self.quote_balance
         self.mode = 0
@@ -111,12 +111,12 @@ class TradingEnv(py_environment.PyEnvironment):
             self.price_data = self.whole_price_data.iloc[random_index:random_index+time_length,:]
         else:
             self.price_data = self.whole_price_data.iloc[:,:]
-        self.current_price = self.price_data.iloc[self.time,0]
+        self.current_price = self.price_data.iloc[self.time,-1]
         self.quote_balance = self.init_quote_balance
         self.base_balance = 0.0
         self.last_balance = self.quote_balance
         self._episode_ended = False
-        self.current_observation = self.price_data.iloc[self.time,1:]
+        self.current_observation = self.price_data.iloc[self.time,:-1]
         self.current_observation["BaseBalance"] = self.base_balance
         self.current_observation["QuoteBalance"] = self.quote_balance
         return ts.restart(np.array(self.current_observation, dtype=np.float32))
@@ -148,8 +148,8 @@ class TradingEnv(py_environment.PyEnvironment):
             #reward *= 10000
             return ts.termination(np.array(self.current_observation, dtype=np.float32), reward = reward)
 
-        self.current_price = self.price_data.iloc[self.time,0]
-        self.current_observation = self.price_data.iloc[self.time,1:]
+        self.current_price = self.price_data.iloc[self.time,-1]
+        self.current_observation = self.price_data.iloc[self.time,:-1]
         self.current_observation["BaseBalance"] = self.base_balance
         self.current_observation["QuoteBalance"] = self.quote_balance
 
@@ -244,14 +244,7 @@ def test(binance, model):
     symbol = "BTCUSDT"
 
     df = pd.read_csv("..\\Data\\" + symbol + "_data.csv", index_col=0, parse_dates=True)
-    #df = pd.read_csv("..\\Data\\SinSample1.csv", index_col=0, parse_dates=True)
-    #df = tf.keras.utils.normalize(df, axis=0, order=2)
-
-    df = df[["OrigClose","Close","Volume","TradeCount","BOLL_UP","BOLL_DOWN","MACD","MACD_SIGNAL","SAR","RSI12","WMA99"]]
-    df = df.fillna(0)
-    orig_close = df["OrigClose"]
-    df = df.applymap(lambda x : 100 * x)
-    df["OrigClose"] = orig_close
+    df = make_dataset.make_reinforcement_dataset(df)
 
     train_env_py = TradingEnv(df)
     train_env_py.set_init_balance(1000)

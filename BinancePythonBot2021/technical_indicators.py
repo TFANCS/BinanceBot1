@@ -12,20 +12,21 @@ import make_dataset
 
 def test(binance):
     df = pd.DataFrame(columns=["Open","Close","High","Low","Volume","QuoteVolume","TakerVolume","TakerQuoteVolume","TradeCount"])
-    klines = binance.get_klines("BTCUSDT",200);
+    klines = binance.get_klines("BTCUSDT",400);
     df = df.append(klines)
     df = df.applymap(lambda x: float(x))
     print(df)
     mpf.plot(df, type='candle')
 
-    indicator1, i2 = macd(df)
+    indicator = wr(df,14)
+
 
     #a = []
     #for i in range(len(df)):
     #    a.append(df.iloc[i,1])
 
     x = range(len(df))
-    plt.plot(x, indicator1,i2)
+    plt.plot(x, indicator)
     plt.show()
 
 

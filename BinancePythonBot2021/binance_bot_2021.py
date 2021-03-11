@@ -46,8 +46,8 @@ class BinanceAPI:
 
     def get_klines(self, pair, number):
         try:
-            klines = pd.DataFrame(self.client.get_klines(symbol=pair, interval=Client.KLINE_INTERVAL_1MINUTE, limit=number),columns = ["OpenTime","Open","High","Low","Close","Volume","CloseTime","QuoteVolume","TradeCount","TakerVolume","TakerQuoteVolume","Ignore"])
-            value = klines[["OpenTime","Open","Close","High","Low","Volume","QuoteVolume","TakerVolume","TakerQuoteVolume","TradeCount"]].copy()
+            klines = pd.DataFrame(self.client.get_klines(symbol=pair, interval=Client.KLINE_INTERVAL_30MINUTE, limit=number),columns = ["OpenTime","Open","High","Low","Close","Volume","CloseTime","QuoteVolume","TradeCount","TakerVolume","TakerQuoteVolume","Ignore"])
+            value = klines[["OpenTime","Close","High","Low","Volume","QuoteVolume","TakerVolume","TakerQuoteVolume","TradeCount"]].copy()
             value.loc[:, "OpenTime"] = pd.to_datetime(value["OpenTime"].apply(lambda x: datetime.fromtimestamp(int(x/1000))))
             value = value.set_index("OpenTime")
             return value
@@ -57,8 +57,8 @@ class BinanceAPI:
 
     def get_historical_klines(self, pair, start, end):
         try:
-            klines = pd.DataFrame(self.client.get_historical_klines(start_str = start,end_str = end,symbol=pair, interval=Client.KLINE_INTERVAL_1MINUTE, limit=500),columns = ["OpenTime","Open","High","Low","Close","Volume","CloseTime","QuoteVolume","TradeCount","TakerVolume","TakerQuoteVolume","Ignore"])
-            value = klines[["OpenTime","Open","Close","High","Low","Volume","QuoteVolume","TakerVolume","TakerQuoteVolume","TradeCount"]].copy()
+            klines = pd.DataFrame(self.client.get_historical_klines(start_str = start,end_str = end,symbol=pair, interval=Client.KLINE_INTERVAL_30MINUTE, limit=500),columns = ["OpenTime","Open","High","Low","Close","Volume","CloseTime","QuoteVolume","TradeCount","TakerVolume","TakerQuoteVolume","Ignore"])
+            value = klines[["OpenTime","Close","High","Low","Volume","QuoteVolume","TakerVolume","TakerQuoteVolume","TradeCount"]].copy()
             value.loc[:, "OpenTime"] = pd.to_datetime(value["OpenTime"].apply(lambda x: datetime.fromtimestamp(int(x/1000))))
             value = value.set_index("OpenTime")
             return value
@@ -208,17 +208,17 @@ def main():
     model = tf.keras.models.Sequential()
     #model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(200, activation="tanh"), input_shape=(const.TIME_LENGTH, len(df.columns))))
     #model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(50, activation="swish"), input_shape=(const.TIME_LENGTH, len(df.columns))))
-    #model.add(tf.keras.layers.LSTM(100, activation="tanh", recurrent_activation="sigmoid", recurrent_dropout=0.5, return_sequences = True))
-    model.add(tf.keras.layers.LSTM(10, activation="tanh", recurrent_activation="sigmoid"))
+    #model.add(tf.keras.layers.LSTM(100, activation="tanh", recurrent_activation="sigmoid", return_sequences = True))
+    model.add(tf.keras.layers.LSTM(100, activation="tanh", recurrent_activation="sigmoid"))
     #model.add(tf.keras.layers.Dense(500, activation="swish"))
-    #model.add(tf.keras.layers.Dropout(0.6))
-    #model.add(tf.keras.layers.Dense(250, activation="tanh"))
-    #model.add(tf.keras.layers.Dense(125, activation="swish"))
-    #model.add(tf.keras.layers.Dropout(0.6))
-    #model.add(tf.keras.layers.Dense(75, activation="tanh"))
-    model.add(tf.keras.layers.Dense(50, activation="relu"))
     #model.add(tf.keras.layers.Dropout(0.2))
-    model.add(tf.keras.layers.Dense(25, activation="relu"))
+    #model.add(tf.keras.layers.Dense(250, activation="swish"))
+    #model.add(tf.keras.layers.Dense(125, activation="swish"))
+    #model.add(tf.keras.layers.Dropout(0.2))
+    #model.add(tf.keras.layers.Dense(75, activation="swish"))
+    model.add(tf.keras.layers.Dense(50, activation="swish"))
+    #model.add(tf.keras.layers.Dropout(0.1))
+    model.add(tf.keras.layers.Dense(25, activation="swish"))
     model.add(tf.keras.layers.Dense(1, activation="linear"))
     optimizer = tf.keras.optimizers.Adam(lr=0.001)
     #optimizer = tf.keras.optimizers.Adam(lr=0.0005)
@@ -226,15 +226,32 @@ def main():
     #model.compile(optimizer=optimizer, loss=loss, metrics=["accuracy"])
     model.compile(optimizer=optimizer, loss="mse", metrics = ['mae', 'mse'])
 
-    print("0:CollectData 1:Train 2:Simulation 3:TestTrade 4:Trade")
+
+    model_c = tf.keras.models.Sequential()
+    model_c.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(50, activation="swish"), input_shape=(const.TIME_LENGTH, len(df.columns))))
+    model_c.add(tf.keras.layers.LSTM(100, activation="tanh", recurrent_activation="sigmoid"))
+    model_c.add(tf.keras.layers.Dense(75, activation="swish"))
+    model_c.add(tf.keras.layers.Dense(50, activation="swish"))
+    model_c.add(tf.keras.layers.Dropout(0.2))
+    model_c.add(tf.keras.layers.Dense(25, activation="swish"))
+    model_c.add(tf.keras.layers.Dense(3, activation="softmax"))
+    optimizer_c = tf.keras.optimizers.Adam(lr=0.001)
+    #loss_c = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+    model_c.compile(optimizer=optimizer_c, loss="sparse_categorical_crossentropy", metrics = ['accuracy'])
+
+    print("0:CollectData 1:Train 1C:Train_classification_model 2:Simulation 2C:Simulation_classification 3:TestTrade 4:Trade")
     print("A:TestIndicators B:TestRainforcementLearn C:PracticalTrade1")
     mode = input(">")
     if mode == "0":
         collect_info.collect_info(binance)
     elif mode == "1":
         train.train(binance,model)
+    elif mode == "1C":
+        train.train_c(binance,model_c)
     elif mode == "2":
         simulation.simulation(binance,model)
+    elif mode == "2C":
+        simulation.simulation_c(binance,model_c)
     elif mode == "3":
         test_trade.test_trade(binance,model)
     elif mode == "A":
