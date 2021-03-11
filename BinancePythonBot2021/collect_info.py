@@ -22,7 +22,7 @@ def collect_info(binance):
             df_list[symbol] = pd.read_csv("..\\Data\\" + symbol + "_data.csv", index_col=0, parse_dates=True)
             mpf.plot(df_list[symbol], type='candle')
         else:
-            df_list[symbol] = make_dataset.make_current_data(binance,symbol,120,10,normalized = True)
+            df_list[symbol] = make_dataset.make_current_data(binance,symbol,110,10)
             df_list[symbol].to_csv("..\\Data\\" + symbol + "_data.csv")
             
  

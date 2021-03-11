@@ -39,7 +39,7 @@ def practical_trade(binance):
 
         wait_time -= 1
 
-        df = make_dataset.make_current_data(binance,symbol,0,0,normalized = False)
+        df = make_dataset.make_current_data(binance,symbol,0,0)
         if df is None:
             if prev_action == 1:
                 trade_history.append("BUY  " + dt_formed + "  Balance:" + str(binance.get_futures_balance(quote_asset)))

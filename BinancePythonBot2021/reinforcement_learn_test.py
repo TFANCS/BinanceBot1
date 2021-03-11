@@ -38,17 +38,17 @@ import random
 
 tf.compat.v1.enable_v2_behavior()
 
-num_iterations = 20000 # @param {type:"integer"}
+num_iterations = 100000 # @param {type:"integer"}
 
 initial_collect_steps = 1000  # @param {type:"integer"} 
 collect_steps_per_iteration = 1  # @param {type:"integer"}
 replay_buffer_max_length = 100000  # @param {type:"integer"}
 
 batch_size = 64  # @param {type:"integer"}
-log_interval = 250  # @param {type:"integer"}
+log_interval = 100  # @param {type:"integer"}
 
 num_eval_episodes = 1  # @param {type:"integer"}episode_return
-eval_interval = 1000  # @param {type:"integer"}
+eval_interval = 500  # @param {type:"integer"}
 
 
 time_length = 120
@@ -78,7 +78,7 @@ class TradingEnv(py_environment.PyEnvironment):
         self.whole_price_data = price_data
         self.price_data = self.whole_price_data.iloc[:time_length,:]
         self.current_price = self.price_data.iloc[self.time,0]
-        self.first_quote_balance = 0.0
+        self.last_balance = 0.0
         self.base_balance = 0.0
         self.quote_balance = 0.0
         self.init_quote_balance = 0.0
@@ -114,7 +114,7 @@ class TradingEnv(py_environment.PyEnvironment):
         self.current_price = self.price_data.iloc[self.time,0]
         self.quote_balance = self.init_quote_balance
         self.base_balance = 0.0
-        self.first_quote_balance = self.quote_balance
+        self.last_balance = self.quote_balance
         self._episode_ended = False
         self.current_observation = self.price_data.iloc[self.time,1:]
         self.current_observation["BaseBalance"] = self.base_balance
@@ -136,7 +136,8 @@ class TradingEnv(py_environment.PyEnvironment):
         if self.time >= len(self.price_data):
             self._episode_ended = True
         if self._episode_ended:
-            reward = ((self.base_balance*self.current_price)+self.quote_balance) - self.first_quote_balance
+            reward = ((self.base_balance*self.current_price)+self.quote_balance) - self.last_balance
+            reward *= 0.01
             #print("Base_Balance:" + str(self.base_balance))
             #print("Quote_Balance:" + str(self.quote_balance))
             #print("Current Price:" + str(self.current_price))
@@ -153,12 +154,18 @@ class TradingEnv(py_environment.PyEnvironment):
         self.current_observation["QuoteBalance"] = self.quote_balance
 
         # Make sure episodes don't go on forever.
-        if action == 0:  #Open Sell
+        if action == 0:  #Sell
             self.base_balance -= self.unit
             self.quote_balance += self.unit * self.current_price * 0.999
+            reward = ((self.base_balance * self.current_price) + self.quote_balance) - self.last_balance
+            reward *= 0.01
+            self.last_balance = (self.base_balance * self.current_price) + self.quote_balance
         elif action == 2:  #buy
             self.base_balance += self.unit * 0.999
             self.quote_balance -= self.unit * self.current_price
+            reward = ((self.base_balance * self.current_price) + self.quote_balance) - self.last_balance
+            reward *= 0.01
+            self.last_balance = (self.base_balance * self.current_price) + self.quote_balance
         elif action == 1:
             pass
         else:
@@ -257,17 +264,17 @@ def test(binance, model):
     eval_env = tf_py_environment.TFPyEnvironment(eval_env_py)
 
 
-    q_net = q_rnn_network.QRnnNetwork(
-        train_env.observation_spec(),
-        train_env.action_spec(),
-        input_fc_layer_params=(128,64,16),
-        output_fc_layer_params=(128,64,16),
-        lstm_size=(128,64,16))
-
-    #q_net = q_network.QNetwork(
+    #q_net = q_rnn_network.QRnnNetwork(
     #    train_env.observation_spec(),
     #    train_env.action_spec(),
-    #    fc_layer_params=(128,64,32))
+    #    input_fc_layer_params=(128,64,16),
+    #    output_fc_layer_params=(128,64,16),
+    #    lstm_size=(128,64,16))
+
+    q_net = q_network.QNetwork(
+        train_env.observation_spec(),
+        train_env.action_spec(),
+        fc_layer_params=(256,128,64,32,16))
 
     global_step = tf.Variable(0, name="global_step", trainable=False)
 
@@ -296,7 +303,7 @@ def test(binance, model):
         batch_size=train_env.batch_size,
         max_length=replay_buffer_max_length)
 
-    collect_data(train_env, random_policy, replay_buffer, steps=360)
+    collect_data(train_env, random_policy, replay_buffer, steps=10000)
 
     policy_checkpointer = common.Checkpointer(ckpt_dir="ReinforcementLearnData/Checkpoint",
                                                 agent=agent,
@@ -310,7 +317,7 @@ def test(binance, model):
     dataset = replay_buffer.as_dataset(
         num_parallel_calls=3, 
         sample_batch_size=batch_size, 
-        num_steps=50).prefetch(3)
+        num_steps=2).prefetch(3)
     
     iterator = iter(dataset)
     

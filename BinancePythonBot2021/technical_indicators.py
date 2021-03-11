@@ -182,7 +182,7 @@ def macd(df):
     short_period_ema = ema(df,12)
     long_period_ema = ema(df,26)
     macd = np.array(short_period_ema) - np.array(long_period_ema)
-    macd = (macd*10000).tolist()
+    macd = macd.tolist()
     signal = ma_array(macd,9)
     return macd,signal
 

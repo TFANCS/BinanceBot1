@@ -15,7 +15,7 @@ def scheduler(epoch, lr):
     if epoch < 5:
         return lr
     else:
-        return (lr/100) * tf.math.exp(-0.1)
+        return lr * tf.math.exp(-0.1)
 
 
 
@@ -61,10 +61,10 @@ def train(binance,model):
 
     #df_list_merged = pd.concat(df_list, axis=1)
 
-    df_test = make_dataset.make_current_data(binance,"XRPUSDT",0,0, normalized=True)
+    df_test = make_dataset.make_current_data(binance,"BTCUSDT",0,0)
     #df_test = pd.read_csv("..\\Data\\SinSample1.csv", index_col=0, parse_dates=True)
 
-    data, target = make_dataset.make_dataset(df_list["XRPUSDT"])
+    data, target = make_dataset.make_dataset(df_list["BTCUSDT"])
     data_test, target_test = make_dataset.make_dataset(df_test)
 
     print(target_test)
@@ -76,10 +76,12 @@ def train(binance,model):
         save_freq=3000)
     lr_change_callback = tf.keras.callbacks.LearningRateScheduler(scheduler)
 
-    early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=4)
+    early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_mae', patience=4)
 
-    epochs = 4
-    batch_size = 2
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir="log", histogram_freq=1)
+
+    epochs = 10
+    batch_size = 64
 
 
     #tuner = kt.Hyperband(model_builder,
@@ -96,28 +98,17 @@ def train(binance,model):
     stack = model.fit(data, target,
               batch_size=batch_size,
               epochs=epochs,
-              callbacks=[checkpoint_callback,lr_change_callback, early_stop],
+              callbacks=[checkpoint_callback,lr_change_callback, early_stop, tensorboard_callback],
               validation_data=(data_test, target_test)
               )
     model.summary()
 
 
-    test_predictions = model.predict(data_test).flatten()
 
-    plt.scatter(target_test, test_predictions)
-    plt.xlabel('True Values [MPG]')
-    plt.ylabel('Predictions [MPG]')
-    plt.axis('equal')
-    plt.axis('square')
-    plt.xlim([0,plt.xlim()[1]])
-    plt.ylim([0,plt.ylim()[1]])
-    _ = plt.plot([-100, 100], [-100, 100])
-    plt.show()
-
-    x = range(len(stack.history["loss"]))
-    plt.plot(x, stack.history["loss"])
-    plt.plot(x, stack.history["val_loss"])
-    plt.legend(["loss", "val_loss"], loc="upper left")
+    x = range(len(stack.history["mae"]))
+    plt.plot(x, stack.history["mae"])
+    plt.plot(x, stack.history["val_mae"])
+    plt.legend(["mae", "val_mae"], loc="upper left")
     plt.title("loss")
     plt.show()
     
@@ -134,9 +125,16 @@ def train(binance,model):
     #mpf.plot(df_list["BTCUSDT"], type='candle', addplot = addplot)
     
     
-    test_data, test_target = make_dataset.make_dataset(df_test)
-    test_loss, test_acc = model.evaluate(test_data,  test_target, verbose=2)
+    test_acc = model.evaluate(data_test, target_test, verbose=2)
     print("Test accuracy:", test_acc)
+
+
+    prediction = pd.DataFrame(model.predict(data_test))
+    prediction = prediction.iloc[:,0].tolist()
+    x=range(len(prediction))
+    plt.plot(x, df_test.iloc[-len(prediction):,1], prediction)
+    plt.legend(["actual", "predict"], loc="upper left")
+    plt.show()
 
     
 
